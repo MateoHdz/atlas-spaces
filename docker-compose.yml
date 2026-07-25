@@ -1,12 +1,5 @@
 version: "3.9"
 
-# NOTA (Fase 1): este compose por ahora solo levanta MongoDB como replica set
-# de un solo nodo, que es lo que el backend necesita para correr localmente
-# (transacciones en la creación de reservas). Los servicios `backend` y
-# `frontend` se agregan en el Ticket 6, cuando existan sus Dockerfiles.
-# Ejecutarlo ahora te da un Mongo apto para `npm run dev` / `npm run seed`
-# desde tu máquina sin instalar Mongo directamente.
-
 services:
   mongo:
     image: mongo:7
@@ -22,6 +15,35 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - MONGO_URI=mongodb://mongo:27017/atlas-spaces?replicaSet=rs0
+      - JWT_SECRET=atlas-spaces-production-secret-key-2026
+      - JWT_EXPIRES_IN=8h
+      - APP_TIMEZONE=America/Bogota
+      - CORS_ORIGIN=http://localhost:5173
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:4000/api
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
 
 volumes:
   mongo_data:
