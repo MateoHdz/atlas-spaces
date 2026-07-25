@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalación limpia de producción/dev
-RUN npm ci
+RUN npm install
 
 # Copiar código fuente
 COPY . .
