@@ -23,6 +23,13 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     });
   }
 
+  // ID de Mongo con formato inválido (ej. /api/spaces/abc-invalido)
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      error: { code: 'INVALID_ID', message: 'ID con formato inválido' },
+    });
+  }
+
   console.error('[unhandled error]', err);
   return res.status(500).json({
     error: { code: 'INTERNAL_ERROR', message: 'Ocurrió un error inesperado' },

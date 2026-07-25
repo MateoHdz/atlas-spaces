@@ -5,6 +5,8 @@ const env = require('./config/env');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 const healthRoutes = require('./modules/health/health.routes');
 const authRoutes = require('./modules/auth/auth.routes');
+const spacesRoutes = require('./modules/spaces/spaces.routes');
+const reservationsRoutes = require('./modules/reservations/reservations.routes');
 
 function createApp() {
   const app = express();
@@ -15,12 +17,12 @@ function createApp() {
 
   app.use('/api/health', healthRoutes);
   app.use('/api/auth', authRoutes);
+  app.use('/api/spaces', spacesRoutes);            // Ticket 2
+  app.use('/api/reservations', reservationsRoutes); // Ticket 2 + 4
 
-  // Los siguientes módulos se montan en las fases correspondientes del roadmap:
-  // app.use('/api/spaces', spacesRoutes);         // Fase 3
-  // app.use('/api/reservations', reservationsRoutes); // Fase 3-4
-  // app.use('/api/dashboard', dashboardRoutes);   // Fase 5
-  // (export vive dentro de reservations: GET /api/reservations/export)
+  // Próximas fases:
+  // app.use('/api/dashboard', dashboardRoutes);   // Ticket 3
+  // (export vive dentro de reservations: GET /api/reservations/export) // Ticket 5
 
   app.use(notFoundHandler);
   app.use(errorHandler);
