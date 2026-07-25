@@ -7,6 +7,7 @@ const healthRoutes = require('./modules/health/health.routes');
 const authRoutes = require('./modules/auth/auth.routes');
 const spacesRoutes = require('./modules/spaces/spaces.routes');
 const reservationsRoutes = require('./modules/reservations/reservations.routes');
+const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 
 function createApp() {
   const app = express();
@@ -19,9 +20,9 @@ function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/spaces', spacesRoutes);            // Ticket 2
   app.use('/api/reservations', reservationsRoutes); // Ticket 2 + 4
+  app.use('/api/dashboard', dashboardRoutes);       // Ticket 3
 
   // Próximas fases:
-  // app.use('/api/dashboard', dashboardRoutes);   // Ticket 3
   // (export vive dentro de reservations: GET /api/reservations/export) // Ticket 5
 
   app.use(notFoundHandler);
