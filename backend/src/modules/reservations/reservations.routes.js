@@ -12,6 +12,9 @@ router.use(requireAuth);
 // GET /api/reservations?page&limit&status&spaceId&from&to&search&sortBy&sortOrder
 router.get('/', controller.list);
 
+// GET /api/reservations/export?status&spaceId&from&to&search
+router.get('/export', controller.exportCSV);
+
 // GET /api/reservations/:id
 router.get('/:id', controller.getOne);
 

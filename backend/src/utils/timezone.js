@@ -31,4 +31,21 @@ function isWithinOperatingHours(startAt, endAt, openTime, closeTime) {
   return startMinutes >= openMinutes && endMinutes <= closeMinutes;
 }
 
-module.exports = { toLocalHHMM, hhmmToMinutes, isWithinOperatingHours };
+/** Devuelve fecha y hora legible "YYYY-MM-DD HH:mm" interpretada en la zona horaria de la app. */
+function toLocalDateTimeString(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: env.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  // en-CA da formato YYYY-MM-DD, hh:mm
+  return formatter.format(d).replace(',', '');
+}
+
+module.exports = { toLocalHHMM, hhmmToMinutes, isWithinOperatingHours, toLocalDateTimeString };

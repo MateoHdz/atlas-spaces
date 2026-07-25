@@ -70,29 +70,9 @@ async function validateBusinessRules(data, space, excludeId, session) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// CRUD público
-// ---------------------------------------------------------------------------
-
-/**
- * Lista reservas con paginación, filtros y orden.
- *
- * Query params soportados:
- *   page, limit, status, spaceId, from, to, search (clientName/title), sortBy, sortOrder
- */
-async function listReservations(query) {
-  const {
-    page = 1,
-    limit = 20,
-    status,
-    spaceId,
-    from,
-    to,
-    search,
-    sortBy = 'startAt',
-    sortOrder = 'asc',
-  } = query;
-
+// Helper centralizado de construcciones de filtro para listado y exportación
+function buildReservationFilter(query) {
+  const { status, spaceId, from, to, search } = query;
   const filter = {};
 
   if (status) filter.status = status;
@@ -108,6 +88,39 @@ async function listReservations(query) {
     const regex = new RegExp(search, 'i');
     filter.$or = [{ title: regex }, { clientName: regex }];
   }
+
+  return filter;
+}
+
+/** Escapa un valor para formateo seguro en CSV */
+function escapeCSVCell(val) {
+  if (val === null || val === undefined) return '';
+  const str = String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+// ---------------------------------------------------------------------------
+// CRUD público
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista reservas con paginación, filtros y orden.
+ *
+ * Query params soportados:
+ *   page, limit, status, spaceId, from, to, search (clientName/title), sortBy, sortOrder
+ */
+async function listReservations(query) {
+  const {
+    page = 1,
+    limit = 20,
+    sortBy = 'startAt',
+    sortOrder = 'asc',
+  } = query;
+
+  const filter = buildReservationFilter(query);
 
   const pageNum = Math.max(1, parseInt(page, 10));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
@@ -137,6 +150,56 @@ async function listReservations(query) {
       totalPages: Math.ceil(total / limitNum),
     },
   };
+}
+
+/**
+ * Exporta todas las reservas que coincidan con los filtros a formato CSV.
+ */
+async function exportReservationsCSV(query) {
+  const { toLocalDateTimeString } = require('../../utils/timezone');
+  const filter = buildReservationFilter(query);
+
+  const reservations = await Reservation.find(filter)
+    .sort({ startAt: 1 })
+    .populate('space', 'name location')
+    .populate('createdBy', 'name email')
+    .lean();
+
+  const headers = [
+    'ID Reserva',
+    'Título',
+    'Espacio',
+    'Ubicación',
+    'Cliente',
+    'Email Cliente',
+    'Asistentes',
+    'Fecha Inicio (Bogotá)',
+    'Fecha Fin (Bogotá)',
+    'Estado',
+    'Creado por',
+  ];
+
+  const rows = reservations.map((r) => [
+    r._id.toString(),
+    r.title,
+    r.space?.name || 'N/A',
+    r.space?.location || 'N/A',
+    r.clientName,
+    r.clientEmail,
+    r.attendees,
+    toLocalDateTimeString(r.startAt),
+    toLocalDateTimeString(r.endAt),
+    r.status,
+    r.createdBy?.name || 'N/A',
+  ]);
+
+  const csvLines = [
+    headers.map(escapeCSVCell).join(','),
+    ...rows.map((row) => row.map(escapeCSVCell).join(',')),
+  ];
+
+  // \uFEFF añade UTF-8 Byte Order Mark (BOM) para compatibilidad con Excel en Windows
+  return '\uFEFF' + csvLines.join('\n');
 }
 
 /**
@@ -291,6 +354,7 @@ async function cancelReservation(id) {
 
 module.exports = {
   listReservations,
+  exportReservationsCSV,
   getReservationById,
   createReservation,
   updateReservation,

@@ -45,4 +45,18 @@ async function cancel(req, res, next) {
   }
 }
 
-module.exports = { list, getOne, create, update, cancel };
+async function exportCSV(req, res, next) {
+  try {
+    const csvContent = await service.exportReservationsCSV(req.query);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="reservaciones_atlas_spaces.csv"'
+    );
+    res.status(200).send(csvContent);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, getOne, create, update, cancel, exportCSV };
