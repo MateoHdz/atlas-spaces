@@ -1,0 +1,27 @@
+version: "3.9"
+
+# NOTA (Fase 1): este compose por ahora solo levanta MongoDB como replica set
+# de un solo nodo, que es lo que el backend necesita para correr localmente
+# (transacciones en la creación de reservas). Los servicios `backend` y
+# `frontend` se agregan en el Ticket 6, cuando existan sus Dockerfiles.
+# Ejecutarlo ahora te da un Mongo apto para `npm run dev` / `npm run seed`
+# desde tu máquina sin instalar Mongo directamente.
+
+services:
+  mongo:
+    image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: >
+        mongosh --quiet --eval
+        "try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mongo_data:
