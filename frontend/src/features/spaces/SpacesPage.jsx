@@ -3,7 +3,9 @@ import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import SpaceModal from './SpaceModal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { Building2, Plus, Edit2, Power, Users, Clock, MapPin, AlertCircle, ShieldAlert } from 'lucide-react';
+import Toast from '../../components/common/Toast';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import { Building2, Plus, Edit2, Power, Users, Clock, MapPin, AlertCircle, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 export default function SpacesPage() {
   const [spaces, setSpaces] = useState([]);
@@ -13,7 +15,16 @@ export default function SpacesPage() {
   const [selectedSpace, setSelectedSpace] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Toast & ConfirmModal
+  const [toast, setToast] = useState({ message: '', type: 'success' });
+  const [deactivateTarget, setDeactivateTarget] = useState(null);
+  const [deactivating, setDeactivating] = useState(false);
+
   const { isAdmin } = useAuth();
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
 
   const fetchSpaces = async () => {
     setLoading(true);
@@ -47,26 +58,42 @@ export default function SpacesPage() {
     try {
       if (selectedSpace) {
         await api.put(`/spaces/${selectedSpace._id}`, formData);
+        showToast('Espacio actualizado con éxito', 'success');
       } else {
         await api.post('/spaces', formData);
+        showToast('Espacio creado con éxito', 'success');
       }
       setIsModalOpen(false);
       fetchSpaces();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Error al guardar el espacio');
+      showToast(err.response?.data?.error?.message || 'Error al guardar el espacio', 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeactivate = async (space) => {
-    if (!window.confirm(`¿Estás seguro de desactivar el espacio "${space.name}"?`)) return;
-
+  const handleConfirmDeactivate = async () => {
+    if (!deactivateTarget) return;
+    setDeactivating(true);
     try {
-      await api.patch(`/spaces/${space._id}/deactivate`);
+      await api.patch(`/spaces/${deactivateTarget._id}/deactivate`);
+      showToast(`Espacio "${deactivateTarget.name}" desactivado con éxito`, 'info');
+      setDeactivateTarget(null);
       fetchSpaces();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Error al desactivar el espacio');
+      showToast(err.response?.data?.error?.message || 'Error al desactivar el espacio', 'error');
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
+  const handleReactivate = async (space) => {
+    try {
+      await api.put(`/spaces/${space._id}`, { ...space, active: true });
+      showToast(`Espacio "${space.name}" reactivado con éxito`, 'success');
+      fetchSpaces();
+    } catch (err) {
+      showToast(err.response?.data?.error?.message || 'Error al reactivar el espacio', 'error');
     }
   };
 
@@ -76,6 +103,26 @@ export default function SpacesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: '', type: 'success' })}
+      />
+
+      {/* Confirm Deactivate Modal */}
+      <ConfirmModal
+        isOpen={!!deactivateTarget}
+        title="Desactivar Espacio"
+        message={`¿Estás seguro de desactivar el espacio "${deactivateTarget?.name}"? Los usuarios ya no podrán realizar nuevas reservas en este espacio.`}
+        confirmText="Sí, Desactivar"
+        cancelText="Volver"
+        variant="warning"
+        loading={deactivating}
+        onConfirm={handleConfirmDeactivate}
+        onClose={() => setDeactivateTarget(null)}
+      />
+
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800">
         <div>
@@ -180,18 +227,29 @@ export default function SpacesPage() {
                   <button
                     onClick={() => handleOpenEdit(space)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-all cursor-pointer"
+                    aria-label={`Editar espacio ${space.name}`}
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     <span>Editar</span>
                   </button>
 
-                  {space.active && (
+                  {space.active ? (
                     <button
-                      onClick={() => handleDeactivate(space)}
+                      onClick={() => setDeactivateTarget(space)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg transition-all cursor-pointer"
+                      aria-label={`Desactivar espacio ${space.name}`}
                     >
                       <Power className="w-3.5 h-3.5" />
                       <span>Desactivar</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleReactivate(space)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-all cursor-pointer"
+                      aria-label={`Reactivar espacio ${space.name}`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Reactivar</span>
                     </button>
                   )}
                 </div>

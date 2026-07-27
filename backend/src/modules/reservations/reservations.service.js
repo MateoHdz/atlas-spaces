@@ -85,7 +85,8 @@ function buildReservationFilter(query) {
   }
 
   if (search) {
-    const regex = new RegExp(search, 'i');
+    const escapedSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapedSearch, 'i');
     filter.$or = [{ title: regex }, { clientName: regex }];
   }
 

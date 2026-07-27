@@ -28,11 +28,28 @@ export default function ReservationModal({
   // Sincroniza datos iniciales al abrir o editar
   useEffect(() => {
     if (initialData && isOpen) {
+      const getBogotaParts = (d) => {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Bogota',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }).formatToParts(d);
+        const getVal = (type) => parts.find((p) => p.type === type)?.value || '00';
+        return {
+          date: `${getVal('year')}-${getVal('month')}-${getVal('day')}`,
+          time: `${getVal('hour')}:${getVal('minute')}`,
+        };
+      };
+
       const start = new Date(initialData.startAt);
       const end = new Date(initialData.endAt);
 
-      const formatDateInput = (d) => d.toISOString().split('T')[0];
-      const formatTimeInput = (d) => d.toTimeString().slice(0, 5);
+      const startParts = getBogotaParts(start);
+      const endParts = getBogotaParts(end);
 
       setFormData({
         space: initialData.space?._id || initialData.space || '',
@@ -40,10 +57,10 @@ export default function ReservationModal({
         clientName: initialData.clientName || '',
         clientEmail: initialData.clientEmail || '',
         attendees: initialData.attendees || 1,
-        startAtDate: formatDateInput(start),
-        startAtTime: formatTimeInput(start),
-        endAtDate: formatDateInput(end),
-        endAtTime: formatTimeInput(end),
+        startAtDate: startParts.date,
+        startAtTime: startParts.time,
+        endAtDate: endParts.date,
+        endAtTime: endParts.time,
         status: initialData.status || 'pending',
         notes: initialData.notes || '',
       });

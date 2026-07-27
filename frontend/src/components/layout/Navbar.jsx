@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ROLE_LABELS } from '../../utils/formatters';
-import { LayoutDashboard, Building2, CalendarDays, LogOut, UserCheck } from 'lucide-react';
+import { LayoutDashboard, Building2, CalendarDays, LogOut, UserCheck, Menu, X } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -23,8 +25,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <NavLink to="/dashboard" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-sky-500/20 group-hover:scale-105 transition-transform">
               <Building2 className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -35,9 +37,9 @@ export default function Navbar() {
                 Coworking Platform
               </span>
             </div>
-          </div>
+          </NavLink>
 
-          {/* Navigation Links */}
+          {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -61,7 +63,7 @@ export default function Navbar() {
           </nav>
 
           {/* User Profile & Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
               <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sky-400 font-bold text-xs">
                 {user?.name?.charAt(0) || 'U'}
@@ -79,15 +81,50 @@ export default function Navbar() {
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg border border-transparent hover:border-rose-500/20 transition-all"
+              className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
               title="Cerrar Sesión"
             >
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Salir</span>
             </button>
+
+            {/* Mobile Hamburger Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              aria-label="Abrir menú de navegación"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Mobile Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-800 bg-slate-900/95 px-4 pt-3 pb-4 space-y-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`
+                }
+              >
+                <Icon className="w-5 h-5" />
+                {item.label}
+              </NavLink>
+            );
+          })}
+        </div>
+      )}
     </header>
   );
 }

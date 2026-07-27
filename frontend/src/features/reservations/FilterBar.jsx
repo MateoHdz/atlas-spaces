@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Search, Filter, FileSpreadsheet, RotateCcw } from 'lucide-react';
 
 export default function FilterBar({
@@ -8,8 +9,31 @@ export default function FilterBar({
   onExportCSV,
   exporting = false,
 }) {
+  const [searchTerm, setSearchTerm] = useState(filters.search || '');
+
+  // Sincroniza estado local con prop de filtros externa (ej. al presionar Limpiar)
+  useEffect(() => {
+    setSearchTerm(filters.search || '');
+  }, [filters.search]);
+
+  // Debounce de 400ms para la búsqueda por texto
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (searchTerm !== (filters.search || '')) {
+        onChange({ ...filters, search: searchTerm, page: 1 });
+      }
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
   const handleChange = (field, value) => {
     onChange({ ...filters, [field]: value, page: 1 });
+  };
+
+  const handleReset = () => {
+    setSearchTerm('');
+    onReset();
   };
 
   return (
@@ -22,7 +46,7 @@ export default function FilterBar({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={onReset}
+            onClick={handleReset}
             className="flex items-center gap-1 px-3 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
             title="Limpiar Filtros"
           >
@@ -42,14 +66,14 @@ export default function FilterBar({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        {/* Search */}
+        {/* Search con Debounce */}
         <div className="relative">
           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Buscar por cliente o título..."
-            value={filters.search || ''}
-            onChange={(e) => handleChange('search', e.target.value)}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:border-sky-500 outline-none"
           />
         </div>

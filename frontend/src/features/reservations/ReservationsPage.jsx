@@ -3,8 +3,22 @@ import api from '../../api/client';
 import FilterBar from './FilterBar';
 import ReservationModal from './ReservationModal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Toast from '../../components/common/Toast';
+import ConfirmModal from '../../components/common/ConfirmModal';
 import { formatDateTime, RESERVATION_STATUS_CONFIG } from '../../utils/formatters';
-import { CalendarDays, Plus, Edit2, Ban, ChevronLeft, ChevronRight, AlertCircle, Building2 } from 'lucide-react';
+import {
+  CalendarDays,
+  Plus,
+  Edit2,
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
+  Building2,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
 
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState([]);
@@ -13,6 +27,11 @@ export default function ReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+
+  // Notificaciones Toast y ConfirmDialog
+  const [toast, setToast] = useState({ message: '', type: 'success' });
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [canceling, setCanceling] = useState(false);
 
   const [filters, setFilters] = useState({
     page: 1,
@@ -30,6 +49,10 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
   // Carga espacios para el filtro y selector de modal
   useEffect(() => {
     async function loadSpaces() {
@@ -43,7 +66,7 @@ export default function ReservationsPage() {
     loadSpaces();
   }, []);
 
-  // Carga reservas segun filtros activos
+  // Carga reservas según filtros activos
   const fetchReservations = async () => {
     setLoading(true);
     setError('');
@@ -58,7 +81,7 @@ export default function ReservationsPage() {
       setPagination(res.data.pagination);
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Error al cargar las reservas');
-    } fontally: {
+    } finally {
       setLoading(false);
     }
   };
@@ -81,6 +104,15 @@ export default function ReservationsPage() {
     });
   };
 
+  const handleSort = (field) => {
+    setFilters((prev) => ({
+      ...prev,
+      sortBy: field,
+      sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
+      page: 1,
+    }));
+  };
+
   const handleOpenCreate = () => {
     setSelectedReservation(null);
     setIsModalOpen(true);
@@ -96,8 +128,10 @@ export default function ReservationsPage() {
     try {
       if (selectedReservation) {
         await api.put(`/reservations/${selectedReservation._id}`, payload);
+        showToast('Reserva actualizada exitosamente', 'success');
       } else {
         await api.post('/reservations', payload);
+        showToast('Reserva creada exitosamente', 'success');
       }
       setIsModalOpen(false);
       fetchReservations();
@@ -109,14 +143,18 @@ export default function ReservationsPage() {
     }
   };
 
-  const handleCancelReservation = async (res) => {
-    if (!window.confirm(`¿Estás seguro de cancelar la reserva "${res.title}"?`)) return;
-
+  const handleConfirmCancel = async () => {
+    if (!cancelTarget) return;
+    setCanceling(true);
     try {
-      await api.patch(`/reservations/${res._id}/cancel`);
+      await api.patch(`/reservations/${cancelTarget._id}/cancel`);
+      showToast(`Reserva "${cancelTarget.title}" cancelada exitosamente`, 'info');
+      setCancelTarget(null);
       fetchReservations();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Error al cancelar la reserva');
+      showToast(err.response?.data?.error?.message || 'Error al cancelar la reserva', 'error');
+    } finally {
+      setCanceling(false);
     }
   };
 
@@ -136,7 +174,6 @@ export default function ReservationsPage() {
         responseType: 'blob',
       });
 
-      // Crear URL de descarga nativa en el navegador
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv;charset=utf-8;' }));
       const link = document.createElement('a');
       link.href = url;
@@ -145,15 +182,47 @@ export default function ReservationsPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      showToast('Reporte CSV descargado con éxito', 'success');
     } catch (err) {
-      alert('Error al descargar la exportación CSV');
+      showToast('Error al descargar el archivo CSV', 'error');
     } finally {
       setExporting(false);
     }
   };
 
+  const renderSortIcon = (field) => {
+    if (filters.sortBy !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-600 inline ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />;
+    }
+    return filters.sortOrder === 'asc' ? (
+      <ChevronUp className="w-3.5 h-3.5 text-sky-400 inline ml-1" />
+    ) : (
+      <ChevronDown className="w-3.5 h-3.5 text-sky-400 inline ml-1" />
+    );
+  };
+
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: '', type: 'success' })}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!cancelTarget}
+        title="Cancelar Reserva"
+        message={`¿Estás seguro de cancelar la reserva "${cancelTarget?.title}"? Esta acción no se puede deshacer.`}
+        confirmText="Sí, Cancelar Reserva"
+        cancelText="Volver"
+        variant="danger"
+        loading={canceling}
+        onConfirm={handleConfirmCancel}
+        onClose={() => setCancelTarget(null)}
+      />
+
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800">
         <div>
@@ -209,10 +278,28 @@ export default function ReservationsPage() {
                 <tr className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   <th className="py-3.5 px-4">Título / Motivo</th>
                   <th className="py-3.5 px-4">Espacio / Ubicación</th>
-                  <th className="py-3.5 px-4">Cliente</th>
-                  <th className="py-3.5 px-4">Fecha & Hora</th>
+                  <th
+                    onClick={() => handleSort('clientName')}
+                    className="py-3.5 px-4 cursor-pointer hover:text-slate-200 transition-colors group"
+                  >
+                    <span>Cliente</span>
+                    {renderSortIcon('clientName')}
+                  </th>
+                  <th
+                    onClick={() => handleSort('startAt')}
+                    className="py-3.5 px-4 cursor-pointer hover:text-slate-200 transition-colors group"
+                  >
+                    <span>Fecha & Hora</span>
+                    {renderSortIcon('startAt')}
+                  </th>
                   <th className="py-3.5 px-4 text-center">Asistentes</th>
-                  <th className="py-3.5 px-4">Estado</th>
+                  <th
+                    onClick={() => handleSort('status')}
+                    className="py-3.5 px-4 cursor-pointer hover:text-slate-200 transition-colors group"
+                  >
+                    <span>Estado</span>
+                    {renderSortIcon('status')}
+                  </th>
                   <th className="py-3.5 px-4 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -264,15 +351,17 @@ export default function ReservationsPage() {
                                 onClick={() => handleOpenEdit(r)}
                                 className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
                                 title="Editar Reserva"
+                                aria-label={`Editar reserva ${r.title}`}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
 
                               {['pending', 'confirmed'].includes(r.status) && (
                                 <button
-                                  onClick={() => handleCancelReservation(r)}
+                                  onClick={() => setCancelTarget(r)}
                                   className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-all cursor-pointer"
                                   title="Cancelar Reserva"
+                                  aria-label={`Cancelar reserva ${r.title}`}
                                 >
                                   <Ban className="w-4 h-4" />
                                 </button>
@@ -300,6 +389,7 @@ export default function ReservationsPage() {
                 disabled={pagination.page <= 1}
                 onClick={() => setFilters({ ...filters, page: pagination.page - 1 })}
                 className="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
+                aria-label="Página anterior"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -313,6 +403,7 @@ export default function ReservationsPage() {
                 disabled={pagination.page >= pagination.totalPages}
                 onClick={() => setFilters({ ...filters, page: pagination.page + 1 })}
                 className="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
+                aria-label="Página siguiente"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
