@@ -12,6 +12,7 @@ async function connectDB() {
 
   await mongoose.connect(env.mongoUri, {
     serverSelectionTimeoutMS: 8000,
+    directConnection: true,
   });
 
   console.log(`[db] Conectado a MongoDB (${mongoose.connection.name})`);
