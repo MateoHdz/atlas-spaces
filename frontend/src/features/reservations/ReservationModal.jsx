@@ -155,16 +155,34 @@ export default function ReservationModal({
             <select
               value={formData.space}
               onChange={(e) => setFormData({ ...formData, space: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 outline-none"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 outline-none cursor-pointer"
               required
             >
               <option value="" disabled>Selecciona un espacio</option>
               {spaces.filter((s) => s.active).map((s) => (
                 <option key={s._id} value={s._id}>
-                  {s.name} - {s.location} (Capacidad: {s.capacity} pers. | Horario: {s.openTime}-{s.closeTime})
+                  {s.name}
                 </option>
               ))}
             </select>
+
+            {/* Info detallada del espacio seleccionado */}
+            {selectedSpaceObj && (
+              <div className="mt-2.5 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-medium text-slate-400">Ubicación / Sede</span>
+                  <span className="font-semibold text-slate-200 mt-0.5 truncate">{selectedSpaceObj.location}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-medium text-slate-400">Capacidad Máxima</span>
+                  <span className="font-semibold text-slate-200 mt-0.5">{selectedSpaceObj.capacity} personas</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-medium text-slate-400">Horario Operativo</span>
+                  <span className="font-semibold text-sky-400 mt-0.5">{selectedSpaceObj.openTime} - {selectedSpaceObj.closeTime}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Título de la reserva */}
