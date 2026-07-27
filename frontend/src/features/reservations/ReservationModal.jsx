@@ -92,12 +92,24 @@ export default function ReservationModal({
     setError('');
   }, [isOpen]); // No incluir `spaces` aquí para no reiniciar la selección del usuario al re-renderizar
 
-  // Asigna espacio por defecto si abre sin espacio seleccionado y los espacios cargan después
+  // Asegura que el espacio seleccionado exista en la lista y, si no, usa el primer espacio activo
   useEffect(() => {
-    if (isOpen && !formData.space && spaces.length > 0) {
+    if (!isOpen || spaces.length === 0) return;
+
+    const activeSpaces = spaces.filter((space) => space.active !== false);
+    if (activeSpaces.length === 0) return;
+
+    const normalizeId = (value) => String(value ?? '').trim().toLowerCase();
+    const currentSpaceId = typeof formData.space === 'object'
+      ? String(formData.space?._id || formData.space?.id || '')
+      : String(formData.space || '');
+
+    const exists = activeSpaces.some((space) => normalizeId(space._id || space.id) === normalizeId(currentSpaceId));
+
+    if (!exists) {
       setFormData((prev) => ({
         ...prev,
-        space: String(spaces[0]._id || spaces[0].id),
+        space: String(activeSpaces[0]._id || activeSpaces[0].id),
       }));
     }
   }, [isOpen, spaces, formData.space]);
@@ -134,12 +146,13 @@ export default function ReservationModal({
   };
 
   // Busca el espacio seleccionado de forma robusta por ID (string)
+  const normalizeId = (value) => String(value ?? '').trim().toLowerCase();
   const currentSpaceId = typeof formData.space === 'object'
-    ? String(formData.space?._id || '')
+    ? String(formData.space?._id || formData.space?.id || '')
     : String(formData.space || '');
 
   const selectedSpaceObj = spaces.find(
-    (s) => String(s._id || s.id) === currentSpaceId
+    (s) => normalizeId(s._id || s.id) === normalizeId(currentSpaceId)
   );
 
   return (
