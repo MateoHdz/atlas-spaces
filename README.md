@@ -2,7 +2,7 @@
 
 ![Node.js](https://img.shields.io/badge/Backend-Node.js%2020%20%7C%20Express-brightgreen)
 ![React](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite%20%7C%20TailwindCSS-blue)
-![MongoDB](https://img.shields.io/badge/Database-MongoDB%207%20ReplicaSet-green)
+![MongoDB](https://img.shields.io/badge/Database-MongoDB%207-green)
 ![Tests](https://img.shields.io/badge/Tests-47%20passing%20(100%25)-success)
 ![Docker](https://img.shields.io/badge/Docker-Docker%20Compose-blue)
 
@@ -16,9 +16,10 @@ El proyecto sigue una arquitectura de **Monolito Modular desacoplado**:
 
 ```text
 atlas-spaces/
+├── package.json              # Orquestador de scripts locales (raíz)
 ├── backend/                  # REST API en Node.js + Express
 │   ├── src/
-│   │   ├── config/           # Conexión DB (ReplicaSet) y Env
+│   │   ├── config/           # Conexión DB y Env
 │   │   ├── models/           # User, Space, Reservation (Mongoose)
 │   │   ├── modules/
 │   │   │   ├── auth/         # Login, JWT, Roles, RateLimit, Zod
@@ -40,6 +41,7 @@ atlas-spaces/
 │   ├── nginx.conf            # Servidor Nginx para producción
 │   └── Dockerfile
 ├── docker-compose.yml        # Orquestación de MongoDB + Backend + Frontend
+├── postman_collection.json   # Colección de prueba para la API
 ├── README.md
 └── IA.md                     # Documentación transparente del uso de IA
 ```
@@ -86,47 +88,41 @@ atlas-spaces/
 
 ### Opción B: Ejecución Local sin Docker
 
-**Requisitos previos:** Node.js (v18 o v20) y MongoDB instalado o corriendo localmente con ReplicaSet (`rs0`).
+**Requisitos previos:** Node.js (v18 o v20) y MongoDB (servidor local o Docker en puerto 27017).
 
-#### 1. Configuración del Backend:
+> **Nota de compatibilidad:** El backend admite MongoDB local tanto en modo *standalone* estándar como en modo *ReplicaSet* (`rs0`).
+
+#### Método Directo desde la Raíz:
 ```bash
-cd backend
-npm install
-```
+# 1. Instalar dependencias de backend y frontend
+npm run install:all
 
-Crear archivo `.env` en `backend/.env`:
-```env
-NODE_ENV=development
-PORT=4000
-MONGO_URI=mongodb://localhost:27017/atlas-spaces?replicaSet=rs0
-JWT_SECRET=atlas-spaces-dev-secret-2026
-JWT_EXPIRES_IN=8h
-APP_TIMEZONE=America/Bogota
-CORS_ORIGIN=http://localhost:5173
-```
-
-Cargar seed de prueba:
-```bash
+# 2. Cargar datos iniciales de prueba (seed)
 npm run seed
+
+# 3. Iniciar Backend en una terminal (escucha en http://localhost:4000)
+npm run dev:backend
+
+# 4. Iniciar Frontend en otra terminal (escucha en http://localhost:5173)
+npm run dev:frontend
 ```
 
-Iniciar backend en modo desarrollo:
-```bash
-npm run dev
-```
+#### Método Tradicional por Subdirectorios:
 
-Ejecutar suite de pruebas (47 tests):
-```bash
-npm test
-```
+1. **Configurar e Iniciar Backend:**
+   ```bash
+   cd backend
+   npm install
+   npm run seed
+   npm run dev
+   ```
 
-#### 2. Configuración del Frontend:
-```bash
-cd ../frontend
-npm install
-npm run dev
-```
-Acceder a [http://localhost:5173](http://localhost:5173).
+2. **Iniciar Frontend:**
+   ```bash
+   cd ../frontend
+   npm install
+   npm run dev
+   ```
 
 ---
 
@@ -135,8 +131,11 @@ Acceder a [http://localhost:5173](http://localhost:5173).
 La solución incluye **47 pruebas de integración** implementadas con Jest, Supertest y `mongodb-memory-server` configurado como **ReplicaSet**:
 
 ```bash
-cd backend
+# Desde la raíz
 npm test
+
+# O desde backend/
+cd backend && npm test
 ```
 
 **Cobertura de pruebas:**
@@ -145,7 +144,7 @@ npm test
 - ✅ **Reglas de negocio:** Validación de capacidad, horario operativo (`07:00-20:00`), fechas invertidas y fechas pasadas.
 - ✅ **CRUD Espacios & Reservas:** Paginación real backend (`page`, `limit`), filtros dinámicos y orden.
 - ✅ **Dashboard:** Métricas analíticas globales, agregación diaria local, por estado y por espacio.
-- ✅ **Exportación CSV:** Verificación de descarga con headers HTTP y marca UTF-8 BOM (`\uFEFF`).
+- ✅ **Exportación CSV:** Verificación de descarga con headers HTTP, nombre con fecha (`reservaciones_atlas_spaces_YYYY-MM-DD.csv`) y marca UTF-8 BOM (`\uFEFF`).
 
 ---
 
@@ -179,14 +178,14 @@ GET    /api/health                      # Healthcheck real (valida estado de con
 
 ## 💡 Supuestos y Decisiones Relevantes
 
-1. **Manejo de Transacciones de Concurrencia:** La detección de solapamientos se realiza **dentro de una transacción nativa de MongoDB** (`session.withTransaction()`). Esto cierra completamente la ventana de condición de carrera entre lecturas y escrituras simultáneas.
-2. **Interpretación de Zona Horaria:** Todas las fechas se persisten en MongoDB en **UTC**. La conversión e interpretación en `America/Bogota` se realiza de manera centralizada en `utils/timezone.js` y en la agregación diaria de MongoDB (`$dateToString` con `timezone`).
-3. **Exportación CSV en UTF-8 con BOM:** El archivo CSV generado incluye el Byte Order Mark (`\uFEFF`) para garantizar que Microsoft Excel en Windows abra el reporte con acentos y caracteres especiales sin requerir importación manual.
+1. **Manejo de Transacciones de Concurrencia con Fallback:** La prevención de solapamiento utiliza **transacciones nativas de MongoDB** (`session.withTransaction()`) en ReplicaSet (Docker/Testing) para garantía atómica, integrando un *fallback* automático en desarrollo local cuando MongoDB se ejecuta en modo standalone.
+2. **Interpretación de Zona Horaria:** Todas las fechas se persisten en MongoDB en **UTC**. La conversión e interpretación en `America/Bogota` se realiza centralizadamente en `utils/timezone.js` y en la agregación diaria de MongoDB (`$dateToString` con `timezone`).
+3. **Exportación CSV en UTF-8 con BOM y Fecha:** El reporte CSV generado incluye el Byte Order Mark (`\uFEFF`) para compatibilidad directa con Microsoft Excel en Windows y un nombre de archivo dinámico con fecha de exportación (`reservaciones_atlas_spaces_YYYY-MM-DD.csv`).
 
 ---
 
 ## 📝 Limitaciones Conocidas y Mejoras Futuras
 
 - **Refresh Tokens:** Actualmente el JWT tiene una vigencia de 8 horas sin rotación de refresh token (suficiente para la jornada laboral MVP).
-- **Swagger UI Interactivo:** La API cuenta con arquitectura REST estándar documentada en este README; se podría agregar `@fastify/swagger` o `swagger-ui-express` para una interfaz interactiva.
+- **Swagger UI Interactivo:** La API cuenta con arquitectura REST estándar documentada en este README y en `postman_collection.json`.
 - **Normalización de Sedes:** La ubicación/sede se maneja como string descriptivo en el modelo `Space`. Se podría extraer a una colección `Site` para gestión independiente.

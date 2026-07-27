@@ -91,7 +91,7 @@ describe('GET /api/reservations/export', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/csv/);
-    expect(res.headers['content-disposition']).toMatch(/attachment; filename="reservaciones_atlas_spaces.csv"/);
+    expect(res.headers['content-disposition']).toMatch(/attachment; filename="reservaciones_atlas_spaces_.*\.csv"/);
 
     // Debe contener el UTF-8 BOM \uFEFF y encabezados
     expect(res.text.startsWith('\uFEFF')).toBe(true);

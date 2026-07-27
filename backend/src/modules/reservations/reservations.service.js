@@ -178,6 +178,7 @@ async function exportReservationsCSV(query) {
     'Fecha Fin (Bogotá)',
     'Estado',
     'Creado por',
+    'Fecha de Creación (Bogotá)',
   ];
 
   const rows = reservations.map((r) => [
@@ -192,6 +193,7 @@ async function exportReservationsCSV(query) {
     toLocalDateTimeString(r.endAt),
     r.status,
     r.createdBy?.name || 'N/A',
+    toLocalDateTimeString(r.createdAt),
   ]);
 
   const csvLines = [
@@ -221,6 +223,7 @@ async function getReservationById(id) {
 /**
  * Crea una reserva nueva.
  * Usa transacción para cerrar la ventana de carrera en solapamiento.
+ * Posee un fallback automático para entornos locales de MongoDB sin replica set.
  */
 async function createReservation(data, userId) {
   const startAt = new Date(data.startAt);
@@ -257,6 +260,24 @@ async function createReservation(data, userId) {
       );
       reservation = created;
     });
+  } catch (err) {
+    if (err.message && err.message.includes('Transaction numbers are only allowed')) {
+      await validateBusinessRules({ ...data, startAt, endAt }, space, null, null);
+      reservation = await Reservation.create({
+        space: data.space,
+        title: data.title,
+        clientName: data.clientName,
+        clientEmail: data.clientEmail,
+        attendees: data.attendees,
+        startAt,
+        endAt,
+        status: 'pending',
+        notes: data.notes,
+        createdBy: userId,
+      });
+    } else {
+      throw err;
+    }
   } finally {
     await session.endSession();
   }
@@ -271,6 +292,7 @@ async function createReservation(data, userId) {
 /**
  * Actualiza una reserva existente.
  * Re-valida todas las reglas de negocio dentro de una transacción.
+ * Posee un fallback automático para entornos locales de MongoDB sin replica set.
  */
 async function updateReservation(id, data, userId) {
   const existing = await Reservation.findById(id).lean();
@@ -315,6 +337,27 @@ async function updateReservation(id, data, userId) {
         { new: true, runValidators: true, session }
       );
     });
+  } catch (err) {
+    if (err.message && err.message.includes('Transaction numbers are only allowed')) {
+      await validateBusinessRules({ ...data, startAt, endAt }, space, id, null);
+      updated = await Reservation.findByIdAndUpdate(
+        id,
+        {
+          space: spaceId,
+          title: data.title,
+          clientName: data.clientName,
+          clientEmail: data.clientEmail,
+          attendees: data.attendees,
+          startAt,
+          endAt,
+          notes: data.notes,
+          ...(data.status ? { status: data.status } : {}),
+        },
+        { new: true, runValidators: true }
+      );
+    } else {
+      throw err;
+    }
   } finally {
     await session.endSession();
   }

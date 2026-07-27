@@ -48,10 +48,11 @@ async function cancel(req, res, next) {
 async function exportCSV(req, res, next) {
   try {
     const csvContent = await service.exportReservationsCSV(req.query);
+    const exportDate = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
-      'attachment; filename="reservaciones_atlas_spaces.csv"'
+      `attachment; filename="reservaciones_atlas_spaces_${exportDate}.csv"`
     );
     res.status(200).send(csvContent);
   } catch (err) {
