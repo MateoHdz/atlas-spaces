@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Users, Mail, FileText, AlertCircle, Building2 } from 'lucide-react';
+import { X, Calendar, Clock, Users, Mail, FileText, AlertCircle, Building2, MapPin } from 'lucide-react';
 
 export default function ReservationModal({
   isOpen,
@@ -25,9 +25,11 @@ export default function ReservationModal({
 
   const [error, setError] = useState('');
 
-  // Sincroniza datos iniciales al abrir o editar
+  // Inicializa el formulario ÚNICAMENTE cuando el modal se abre (isOpen cambia de false a true)
   useEffect(() => {
-    if (initialData && isOpen) {
+    if (!isOpen) return;
+
+    if (initialData) {
       const getBogotaParts = (d) => {
         const parts = new Intl.DateTimeFormat('en-CA', {
           timeZone: 'America/Bogota',
@@ -47,12 +49,15 @@ export default function ReservationModal({
 
       const start = new Date(initialData.startAt);
       const end = new Date(initialData.endAt);
-
       const startParts = getBogotaParts(start);
       const endParts = getBogotaParts(end);
 
+      const spaceId = typeof initialData.space === 'object'
+        ? String(initialData.space?._id || initialData.space?.id || '')
+        : String(initialData.space || '');
+
       setFormData({
-        space: initialData.space?._id || initialData.space || '',
+        space: spaceId,
         title: initialData.title || '',
         clientName: initialData.clientName || '',
         clientEmail: initialData.clientEmail || '',
@@ -64,14 +69,14 @@ export default function ReservationModal({
         status: initialData.status || 'pending',
         notes: initialData.notes || '',
       });
-    } else if (isOpen) {
-      // Valores por defecto para nueva reserva (mañana a las 09:00 - 10:00)
+    } else {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const dateStr = tomorrow.toISOString().split('T')[0];
+      const defaultSpaceId = spaces.length > 0 ? String(spaces[0]._id || spaces[0].id) : '';
 
       setFormData({
-        space: spaces.length > 0 ? spaces[0]._id : '',
+        space: defaultSpaceId,
         title: '',
         clientName: '',
         clientEmail: '',
@@ -85,7 +90,17 @@ export default function ReservationModal({
       });
     }
     setError('');
-  }, [initialData, isOpen, spaces]);
+  }, [isOpen]); // No incluir `spaces` aquí para no reiniciar la selección del usuario al re-renderizar
+
+  // Asigna espacio por defecto si abre sin espacio seleccionado y los espacios cargan después
+  useEffect(() => {
+    if (isOpen && !formData.space && spaces.length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        space: String(spaces[0]._id || spaces[0].id),
+      }));
+    }
+  }, [isOpen, spaces, formData.space]);
 
   if (!isOpen) return null;
 
@@ -118,13 +133,20 @@ export default function ReservationModal({
     });
   };
 
-  const selectedSpaceObj = spaces.find((s) => s._id === formData.space);
+  // Busca el espacio seleccionado de forma robusta por ID (string)
+  const currentSpaceId = typeof formData.space === 'object'
+    ? String(formData.space?._id || '')
+    : String(formData.space || '');
+
+  const selectedSpaceObj = spaces.find(
+    (s) => String(s._id || s.id) === currentSpaceId
+  );
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900 shrink-0">
           <div className="flex items-center gap-2 text-slate-100 font-bold">
             <Calendar className="w-5 h-5 text-sky-400" />
             <span>{initialData ? 'Editar Reserva' : 'Nueva Reserva'}</span>
@@ -137,8 +159,8 @@ export default function ReservationModal({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Form Body con Scroll Interno */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-xs text-rose-300">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -153,33 +175,44 @@ export default function ReservationModal({
               <span>Espacio de Coworking</span>
             </label>
             <select
-              value={formData.space}
-              onChange={(e) => setFormData({ ...formData, space: e.target.value })}
+              value={currentSpaceId}
+              onChange={(e) => setFormData((prev) => ({ ...prev, space: e.target.value }))}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 outline-none cursor-pointer"
               required
             >
               <option value="" disabled>Selecciona un espacio</option>
               {spaces.filter((s) => s.active).map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.name}
+                <option key={s._id || s.id} value={s._id || s.id}>
+                  {s.name} ({s.location})
                 </option>
               ))}
             </select>
 
             {/* Info detallada del espacio seleccionado */}
             {selectedSpaceObj && (
-              <div className="mt-2.5 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase font-medium text-slate-400">Ubicación / Sede</span>
-                  <span className="font-semibold text-slate-200 mt-0.5 truncate">{selectedSpaceObj.location}</span>
+              <div className="mt-2.5 p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Ubicación / Sede</span>
+                    <span className="font-semibold text-slate-200 truncate">{selectedSpaceObj.location}</span>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase font-medium text-slate-400">Capacidad Máxima</span>
-                  <span className="font-semibold text-slate-200 mt-0.5">{selectedSpaceObj.capacity} personas</span>
+
+                <div className="flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Capacidad</span>
+                    <span className="font-semibold text-slate-200">{selectedSpaceObj.capacity} personas</span>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase font-medium text-slate-400">Horario Operativo</span>
-                  <span className="font-semibold text-sky-400 mt-0.5">{selectedSpaceObj.openTime} - {selectedSpaceObj.closeTime}</span>
+
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Horario</span>
+                    <span className="font-semibold text-sky-400">{selectedSpaceObj.openTime} - {selectedSpaceObj.closeTime}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -250,7 +283,7 @@ export default function ReservationModal({
               />
               {selectedSpaceObj && (
                 <span className="block text-[10px] text-slate-400 mt-1">
-                  Máximo permitido: {selectedSpaceObj.capacity} personas
+                  Capacidad máxima: {selectedSpaceObj.capacity} personas
                 </span>
               )}
             </div>
@@ -263,7 +296,7 @@ export default function ReservationModal({
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:border-sky-500 outline-none cursor-pointer"
                 >
                   <option value="pending">Pendiente</option>
                   <option value="confirmed">Confirmada</option>
