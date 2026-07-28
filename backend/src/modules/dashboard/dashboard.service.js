@@ -16,34 +16,76 @@ function buildDateMatch(from, to) {
  * Resumen general de métricas clave.
  * - Total de reservas
  * - Conteo por estado (pending, confirmed, completed, cancelled)
- * - Tasa de ocupación/confirmación (%)
+ * - Tasa de cancelación (%) [Requisito explícito PDF]
+ * - Tasa de ocupación (%)
  * - Total de horas reservadas (excluye canceladas)
+ * - Espacio con mayor cantidad de reservas confirmadas [Requisito explícito PDF]
  */
 async function getSummary(from, to) {
   const match = buildDateMatch(from, to);
 
-  const stats = await Reservation.aggregate([
-    { $match: match },
-    {
-      $group: {
-        _id: null,
-        total: { $sum: 1 },
-        pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-        confirmed: { $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] } },
-        completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-        cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
-        totalHours: {
-          $sum: {
-            $cond: [
-              { $ne: ['$status', 'cancelled'] },
-              { $divide: [{ $subtract: ['$endAt', '$startAt'] }, 1000 * 60 * 60] },
-              0,
-            ],
+  const [stats, mostConfirmedList] = await Promise.all([
+    Reservation.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
+          confirmed: { $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] } },
+          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
+          totalHours: {
+            $sum: {
+              $cond: [
+                { $ne: ['$status', 'cancelled'] },
+                { $divide: [{ $subtract: ['$endAt', '$startAt'] }, 1000 * 60 * 60] },
+                0,
+              ],
+            },
           },
         },
       },
-    },
+    ]),
+
+    // Agregación para obtener el espacio con más reservas confirmadas/completadas
+    Reservation.aggregate([
+      {
+        $match: {
+          ...match,
+          status: { $in: ['confirmed', 'completed'] },
+        },
+      },
+      {
+        $group: {
+          _id: '$space',
+          confirmedCount: { $sum: 1 },
+        },
+      },
+      { $sort: { confirmedCount: -1 } },
+      { $limit: 1 },
+      {
+        $lookup: {
+          from: 'spaces',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'spaceInfo',
+        },
+      },
+      { $unwind: '$spaceInfo' },
+      {
+        $project: {
+          _id: 0,
+          spaceId: '$_id',
+          spaceName: '$spaceInfo.name',
+          location: '$spaceInfo.location',
+          confirmedCount: 1,
+        },
+      },
+    ]),
   ]);
+
+  const mostConfirmedSpace = mostConfirmedList[0] || null;
 
   if (!stats || stats.length === 0) {
     return {
@@ -52,14 +94,17 @@ async function getSummary(from, to) {
       confirmedReservations: 0,
       completedReservations: 0,
       cancelledReservations: 0,
+      cancellationRate: 0,
       occupancyRate: 0,
       totalHoursBooked: 0,
+      mostConfirmedSpace: null,
     };
   }
 
   const res = stats[0];
   const activeCount = res.confirmed + res.completed + res.pending;
   const occupancyRate = res.total > 0 ? Number(((activeCount / res.total) * 100).toFixed(2)) : 0;
+  const cancellationRate = res.total > 0 ? Number(((res.cancelled / res.total) * 100).toFixed(2)) : 0;
 
   return {
     totalReservations: res.total,
@@ -67,8 +112,10 @@ async function getSummary(from, to) {
     confirmedReservations: res.confirmed,
     completedReservations: res.completed,
     cancelledReservations: res.cancelled,
+    cancellationRate,
     occupancyRate,
     totalHoursBooked: Number(res.totalHours.toFixed(2)),
+    mostConfirmedSpace,
   };
 }
 

@@ -53,7 +53,7 @@ async function validateBusinessRules(data, space, excludeId, session) {
   //    (se excluyen cancelled y la propia reserva en modo edición)
   const overlapFilter = {
     space: space._id,
-    status: { $nin: ['cancelled'] },
+    status: { $nin: ['cancelled', 'completed'] },
     startAt: { $lt: endAt },
     endAt: { $gt: startAt },
   };

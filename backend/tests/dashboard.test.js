@@ -140,6 +140,9 @@ describe('GET /api/dashboard/summary', () => {
     expect(data.cancelledReservations).toBe(1);
     // Activas = 3/4 = 75%
     expect(data.occupancyRate).toBe(75);
+    // Canceladas = 1/4 = 25%
+    expect(data.cancellationRate).toBe(25);
+    expect(data.mostConfirmedSpace).toBeDefined();
     // Horas activas = 2h + 1h + 3h = 6h (excluye las 2h canceladas)
     expect(data.totalHoursBooked).toBe(6);
   });

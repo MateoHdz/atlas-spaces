@@ -15,6 +15,8 @@ import {
   TrendingUp,
   AlertCircle,
   Filter,
+  Trophy,
+  XCircle,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -126,7 +128,7 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Total Reservas */}
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 relative overflow-hidden">
               <div className="flex items-center justify-between">
@@ -151,28 +153,46 @@ export default function DashboardPage() {
               <span className="text-[11px] text-slate-500 mt-1 block">Reservas confirmadas activas</span>
             </div>
 
-            {/* Tasa Ocupación */}
+            {/* Tasa de Cancelación (Requisito PDF) */}
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tasa Confirmación</span>
-                <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                  <Percent className="w-5 h-5" />
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tasa Cancelación</span>
+                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                  <XCircle className="w-5 h-5" />
                 </div>
               </div>
-              <p className="text-3xl font-extrabold text-purple-400 mt-3">{summary?.occupancyRate || 0}%</p>
-              <span className="text-[11px] text-slate-500 mt-1 block">% de reservas no canceladas</span>
+              <p className="text-3xl font-extrabold text-rose-400 mt-3">{summary?.cancellationRate || 0}%</p>
+              <span className="text-[11px] text-slate-500 mt-1 block">Canceladas / Total</span>
+            </div>
+
+            {/* Espacio Más Confirmado (Requisito PDF) */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Más Reservado</span>
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <Trophy className="w-5 h-5" />
+                </div>
+              </div>
+              {summary?.mostConfirmedSpace ? (
+                <div>
+                  <p className="text-lg font-bold text-amber-300 mt-2 truncate">{summary.mostConfirmedSpace.spaceName}</p>
+                  <span className="text-[11px] text-slate-400 block truncate">{summary.mostConfirmedSpace.confirmedCount} confirmadas</span>
+                </div>
+              ) : (
+                <p className="text-sm font-semibold text-slate-500 mt-3">Sin datos</p>
+              )}
             </div>
 
             {/* Horas Reservadas */}
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Horas Reservadas</span>
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
                   <Clock className="w-5 h-5" />
                 </div>
               </div>
-              <p className="text-3xl font-extrabold text-amber-400 mt-3">{summary?.totalHoursBooked || 0} hrs</p>
-              <span className="text-[11px] text-slate-500 mt-1 block">Horas activas acumuladas</span>
+              <p className="text-3xl font-extrabold text-indigo-400 mt-3">{summary?.totalHoursBooked || 0} hrs</p>
+              <span className="text-[11px] text-slate-500 mt-1 block">Horas acumuladas</span>
             </div>
           </div>
 
